@@ -1,0 +1,28 @@
+<data>
+<input_files>
+	<baseNET>SLR.neta</baseNET>
+	<baseCAS>SEAWAT2NETICA_SLR_00.cas</baseCAS>
+	<pwdfile>mikeppwd.txt</pwdfile>
+</input_files>
+<kfold_data>
+	<CVflag>False</CVflag>
+	<numfolds>10</numfolds>
+</kfold_data>
+
+<scenarios>
+	<scenario>
+		<name>updateALL_predWT</name>
+		<input>islandwidth</input>
+		<input>islandelev</input>
+		<input>mean_rch</input>
+		<input>maxWT</input>
+		<response>mean_DTW</response>
+		<response>maxWT</response>
+	</scenario>	
+
+</scenarios>
+<learnCPTdata>
+	<voodooPar>100</voodooPar>
+	<useEM>True</useEM>
+</learnCPTdata>
+</data>

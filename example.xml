@@ -1,0 +1,47 @@
+<data>
+	<control_data>
+		<baseNET>glacial_bins4_5_0.neta</baseNET> <!-- name of main .neta file -->
+		<baseCAS>glacial.cas</baseCAS>            <!-- name of main data file -->
+		<rebin_flag>True</rebin_flag>             <!-- flag determining if 
+													   rebinning should be performed -->
+		<originalNET>glacial.neta</originalNET>   <!-- original .neta file providing node
+		                                          structure and bins of numbins=0 below-->
+		<pwdfile>mikeppwd.txt</pwdfile>           <!-- name of Netica license file -->
+	</control_data>
+	<kfold_data>
+		<CVflag>True</CVflag>    <!-- flag indicating if k-fold cross validation 
+		                              should be carried out -->
+		<numfolds>10</numfolds>  <!-- number of folds for cross validation -->
+	</kfold_data>
+	<scenario>
+		<name>glacial_set1</name>     <!-- scenario name for output files -->
+		<input>sqrt_SW_MIN</input>    <!-- input tags identify nodes as used for input --> 
+		<input>sqrt_RIVMIN1</input>   
+		<input>PCTORD1</input>
+		<response>EXT_FLOW</response> <!-- response tags identify nodes as used for output -->
+		<response>SW_SRC</response> 
+	</scenario>	
+	<sensitivity>
+		<report_sens>True</report_sens> <!-- flag indicating if Netica sensitivity and 
+											 other built-in metrics should be reported -->
+	</sensitivity>
+	<learnCPTdata>
+		<voodooPar>100</voodooPar>       <!-- fitting parameter for learning CPTs -->
+		<useEM>True</useEM>              <!-- use EM to learn CPTs if True. Else, use 
+		                                      incporporate casefile method -->
+	</learnCPTdata>
+	<rebinning>
+	<!-- if rebin_flag is True, then bin_setup.py will read in the 
+		rebin_name to write out the rebinned .neta file and will
+		use the newbins information for that purpose.
+		Nodes will be rediscretized into numbins equiprobable bins.
+		Special case when numbins = 0, the node is not redisretized from originalNET -->
+			<newbins>
+				<node numbins="4">sqrt_SW_MIN</node>
+				<node numbins="4">sqrt_RIVMIN1</node>
+				<node numbins="4">PCTORD1</node>
+				<node numbins="5">EXT_FLOW</node>
+				<node numbins="0">SW_SRC</node>
+			</newbins>
+	</rebinning>
+</data>
