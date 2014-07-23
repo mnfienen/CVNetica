@@ -732,9 +732,9 @@ class pynetica:
             for line in outdat:
                 for cv in line:
                     if np.isnan(cv):
-                        ofp.write(' {0:20s} '.format('*'))
+                        ofp.write(' {0:24s} '.format('*'))
                     else:
-                        ofp.write(' {0:20.8e} '.format(cv))
+                        ofp.write(' {0:24.12e} '.format(cv))
                 ofp.write('\n')
             ofp.close()
 
