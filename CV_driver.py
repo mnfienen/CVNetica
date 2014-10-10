@@ -50,6 +50,15 @@ cdat.NodeParentIndexing(cdat.probpars.baseNET, cdat.probpars.baseCAS)
 cdat.allfolds = CVT.all_folds()
 cdat.allfolds.k_fold_maker(cdat.N, cdat.probpars.numfolds)
 
+# associate the casefile with the net
+print '*'*5 + 'Learning base casefile in base net' + '*'*5 + '\n\n'
+
+cdat.pyt.rebuild_net(cdat.probpars.baseNET,
+                         cdat.probpars.baseCAS,
+                         cdat.probpars.voodooPar,
+                         cdat.probpars.baseNET,
+                         cdat.probpars.EMflag)
+                         
 # run the predictions using the base net --> 
 cdat.basepred, cdat.NETNODES = cdat.predictBayes(cdat.probpars.baseNET, cdat.N, cdat.casdata)
 

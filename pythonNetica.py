@@ -413,7 +413,7 @@ class pynetica:
                                                                        cpred[nodename].ranges,
                                                                        cpred[nodename].continuous,
                                                                        blank)
-
+        zmean = np.nanmean(cpred[nodename].z)
         cpred[nodename].stats.skMean = statfuns.LSQR_skill(
             cpred[nodename].stats.mean,
             cpred[nodename].z-np.nanmean(cpred[nodename].z))
