@@ -31,6 +31,16 @@ class input_parameters:
         self.pwdfile = inpars.findall('.//control_data/pwdfile')[0].text
         # see if rebinning is required and, if so, read in the relevant information
         try:
+            self.holdoutVAL_flag = inpars.findall('.//control_data/holdoutVAL_flag')[0].text
+        except IndexError:
+            self.holdoutVAL_flag = False
+
+        if self.holdoutVAL_flag:
+            try:
+                self.valCAS = inpars.findall('.//control_data/valCAS')[0].text
+            except IndexError:
+                self.valCAS = None
+        try:
             self.rebin_flag = tf2flag(inpars.findall('.//control_data/rebin_flag')[0].text)
             self.originalNET = inpars.findall('.//control_data/originalNET')[0].text
         except IndexError:
