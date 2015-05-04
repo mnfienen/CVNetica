@@ -133,10 +133,12 @@ class pynetica:
         self.pyt.DeleteStream(cas_streamer)
         self.parent_inds = parent_indices
 
-    def UpdateNeticaBinThresholds(self):
+    def UpdateNeticaBinThresholds(self, VALflag = False):
         '''
         Function that reads in new numbers of bins and sets each node to
         have equiprobable bins in that number
+
+        VALFlag is for using a specific validation dataset rather than
         '''
         # first open the net
         print "*"*5 + "Setting up a rebinned net {0:s} copying nodes from {1:s}".format(self.probpars.baseNET,
@@ -149,6 +151,14 @@ class pynetica:
             if self.probpars.binsetup[cbin] != 0:
                 # only do this if requested bins not zero. Else, use same bins as input net
                 print "Setting node {0:s} to have {1:d} bins".format(cbin, self.probpars.binsetup[cbin])
+                if self.probpars.holdoutVAL_flag:
+                    # adjust the min and max bin levels to be sure and encapsulate new data that may be out of range
+                    cnodebins.binlevels[cnodebins.binlevels == np.min(cnodebins.binlevels)] = np.min(
+                    [np.min(cnodebins.binlevels), np.min(self.val_casdata[cbin])]
+                    )
+                    cnodebins.binlevels[cnodebins.binlevels == np.max(cnodebins.binlevels)] = np.max(
+                    [np.max(cnodebins.binlevels), np.max(self.val_casdata[cbin])]
+                    )
                 self.pyt.SetNodeLevels(cnode, cnodebins.binlevels)
             else:
                 print "NOT Setting node {0:s} to have {1:d} bins".format(cbin, self.probpars.binsetup[cbin])
@@ -159,7 +169,7 @@ class pynetica:
         self.pyt.DeleteStream(outfile_streamer)
         self.pyt.DeleteNet(cnet)
 
-    def PredictBayesNeticaCV(self, cfold, cnetname, calval):
+    def PredictBayesNeticaCV(self, cfold, cnetname, calval, VALset=False):
         '''
         function using Netica built-in testing functionality to evaluate Net
         '''
@@ -237,6 +247,8 @@ class pynetica:
                 self.NeticaTests['VAL'].append(ctestresults)
             else:
                 pass
+        elif VALset:
+            self.VALNeticaTests = ctestresults
         else:
             self.BaseNeticaTests = ctestresults
 
@@ -300,6 +312,7 @@ class pynetica:
         for i in np.arange(N):
             sys.stdout.write('predicting value {0} of {1}\r'.format(i,N))
             sys.stdout.flush()
+
             # first have to enter the values for each node
             # retract all the findings again
             self.pyt.RetractNetFindings(cnet)
@@ -318,6 +331,7 @@ class pynetica:
                     cpred[cnodename].pdf[i, :] = cth.c_float_p2float(
                         self.pyt.GetNodeBeliefs(cnode),
                         self.pyt.GetNodeNumberStates(cnode))
+        print 'predicting value {0} of {1}\r'.format(i,N)
         #
         # Do some postprocessing for just the output nodes
         #
@@ -329,22 +343,23 @@ class pynetica:
                 curr_continuous = 'continuous'
             else:
                 curr_continuous = 'discrete'
-            pdfRanges = cpred[i].ranges
-            cpred[i].z = np.atleast_2d(casdata[i]).T
-            pdfParam = np.hstack((cpred[i].z, currstds))
-            pdfData = statfuns.makeInputPdf(pdfRanges, pdfParam, 'norm', curr_continuous)
+            if not self.probpars.holdoutVAL_flag:
+                pdfRanges = cpred[i].ranges
+                cpred[i].z = np.atleast_2d(casdata[i]).T
+                pdfParam = np.hstack((cpred[i].z, currstds))
+                pdfData = statfuns.makeInputPdf(pdfRanges, pdfParam, 'norm', curr_continuous)
 
-            cpred[i].probModelUpdate = np.nansum(pdfData * cpred[i].pdf, 1)
-            cpred[i].probModelPrior = np.nansum(pdfData * np.tile(cpred[i].priorPDF,
-                                                (N, 1)), 1)
-            cpred[i].logLikelihoodRatio = (np.log10(cpred[i].probModelUpdate + np.spacing(1)) -
-                                           np.log10(cpred[i].probModelPrior + np.spacing(1)))
-            cpred[i].dataPDF = pdfData.copy()
-            # note --> np.spacing(1) is like eps in MATLAB
-            # get the PDF stats here
+                cpred[i].probModelUpdate = np.nansum(pdfData * cpred[i].pdf, 1)
+                cpred[i].probModelPrior = np.nansum(pdfData * np.tile(cpred[i].priorPDF,
+                                                    (N, 1)), 1)
+                cpred[i].logLikelihoodRatio = (np.log10(cpred[i].probModelUpdate + np.spacing(1)) -
+                                               np.log10(cpred[i].probModelPrior + np.spacing(1)))
+                cpred[i].dataPDF = pdfData.copy()
+                # note --> np.spacing(1) is like eps in MATLAB
+                # get the PDF stats here
 
-            print 'getting stats'
-            cpred = self.PDF2Stats(i, cpred, alpha=0.1)
+                print 'getting stats'
+                cpred = self.PDF2Stats(i, cpred, alpha=0.1)
 
         self.pyt.DeleteNet(cnet)
         return cpred, cNETNODES
@@ -674,6 +689,29 @@ class pynetica:
                                      dtype=None, missing_values='*,?')
         os.remove('###tmp###')
         self.N = len(self.casdata)
+
+    def read_pred_cas_file(self,casfilename):
+        '''
+        function to read in a casfile into a pynetica object.
+        '''
+        # first read in and strip out all comments and write out to a scratch file
+        tmpdat = open(casfilename, 'r').readlines()
+        ofp = open('###tmp###', 'w')
+        for line in tmpdat:
+            #line = re.sub('\?','*',line)
+            if '//' not in line:
+                ofp.write(line)
+            elif line.strip().split()[0].strip() == '//':
+                pass
+            elif '//' in line:
+                line = re.sub('//.*', '', line)
+                if len(line.strip()) > 0:
+                    ofp.write(line)
+        ofp.close()
+        self.val_casdata = np.genfromtxt('###tmp###', names=True,
+                                     dtype=None, missing_values='*,?')
+        os.remove('###tmp###')
+        self.N_val = len(self.val_casdata)
 
     # cross validation driver
     def cross_val_setup(self):
