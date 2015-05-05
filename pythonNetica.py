@@ -268,10 +268,30 @@ class pynetica:
 
 
 
-    def predictBayes(self, netName, N, casdata):
+    def predictBayes(self, netName, N, casdata, inputErr = None):
         '''
         netName --> name of the built net to make predictions on
+        N --> number of predictions to make
+        casdata --> data from the cas file(should be N lines)
+        inputErr --> error on the input values: can take 3 forms
+            1) None: no error assumed - just use casdata values straight up
+            2) Vector (ndim = 1): value is STD applied to casdata as mean. Normal input
+                PDF will be made using those two values
+            3) 2-d array (ndim = 2): each row of inputErr is a vector of likelihood
+                        values -- one for each row of casdata having a likelihood
+                        value for each bin in the node. This must be calculated
+                        elsewhere
         '''
+
+        # determine the nature of error passed in
+        if not inputErr:
+            # no error provided
+            errtype = 0
+        else:
+            # if errtype ==1, error is STD values
+            # else if errype == 2, error is full likelihood vector for each msmt
+            errtype = inputErr.ndim
+
         # first read in the information about a Net's nodes
         cNETNODES = self.pyt.ReadNodeInfo(netName)
         '''
@@ -323,7 +343,21 @@ class pynetica:
                 cnodename = cth.c_char_p2str(self.pyt.GetNodeName(cnode))
                 # set the current node values
                 if cnodename in self.probpars.scenario.nodesIn:
-                    self.pyt.EnterNodeValue(cnode, casdata[cnodename][i])
+                    if errtype == 0:
+                        self.pyt.EnterNodeValue(cnode, casdata[cnodename][i])
+                    elif errtype == 1:
+                        levels = statfuns.makeInputPdf(pdfRanges, pdfParam, 'norm', curr_continuous)
+
+
+                        #########################
+                        # WORK HERE TO SET UP THE ERROR MODELS
+                        #########################
+
+
+
+
+
+
             for cn in np.arange(numnodes):
             # obtain the updated beliefs from ALL nodes including input and output
                 cnode = self.pyt.NthNode(allnodes, cn)

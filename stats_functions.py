@@ -3,7 +3,7 @@ from scipy.stats import norm
 from scipy.interpolate import interp1d
 from numpy.linalg import lstsq as nplstsq
 
-def makeInputPdf(pdfRanges, pdfParam,pdfType='norm',cont_discrete='continuous'):
+def makeInputPdf(pdfRanges, pdfParam, pdfType='norm', cont_discrete='continuous'):
     '''
     pdfRanges --> gives the range for each bin in the node
     pdfParam --> a Nx2 vector of mean and std
@@ -22,6 +22,8 @@ def makeInputPdf(pdfRanges, pdfParam,pdfType='norm',cont_discrete='continuous'):
             cdf[-1]=1.0
             PDF[i,:] = np.diff(cdf)
     return PDF
+
+
 
 def getPy(p,pdf,ranges):
     '''

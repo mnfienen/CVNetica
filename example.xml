@@ -7,6 +7,21 @@
 		<originalNET>glacial.neta</originalNET>   <!-- original .neta file providing node
 		                                          structure and bins of numbins=0 below-->
 		<pwdfile>mikeppwd.txt</pwdfile>           <!-- name of Netica license file -->
+		<Experienceflag>False</Experienceflag>    <!-- flag whether to calculate Experience
+		                                            using built-in Netica functions:
+		                                            defaults to False -->
+        <Confusionflag>False</Confusionflag>      <!-- flag whether to calculate Confusion
+		                                            using built-in Netica functions
+		                                            defaults to False -->		                                            
+        <RelearnBaseflag>True</RelearnBaseflag>   <!-- flag whether to relearn the base 
+                                                    data. In other words, should the 
+                                                    baseNET get retrained using baseCAS?
+                                                    If rebinning, this flag will have no impact
+                                                    on the results, but if not rebinning, then
+                                                    baseNET is used off the couch and this
+                                                    flag will determine whether CPT learning
+                                                    should take place.
+                                                    defaults to True -->
 	</control_data>
 	<kfold_data>
 		<CVflag>True</CVflag>    <!-- flag indicating if k-fold cross validation 

@@ -43,16 +43,17 @@ if cdat.probpars.rebin_flag:
     # sets equiprobable bins for each node as requested
     cdat.UpdateNeticaBinThresholds()
 
-if cdat.probpars.experience_flag:
-    # set up the experience node indexing
-    cdat.NodeParentIndexing(cdat.probpars.baseNET, cdat.probpars.baseCAS)
+    # associate the casefile with the new net
+    print '*'*5 + 'Learning base casefile in base net' + '*'*5 + '\n\n'
 
-# create the folds desired
-cdat.allfolds = CVT.all_folds()
-cdat.allfolds.k_fold_maker(cdat.N, cdat.probpars.numfolds)
+    cdat.pyt.rebuild_net(cdat.probpars.baseNET,
+                         cdat.probpars.baseCAS,
+                         cdat.probpars.voodooPar,
+                         cdat.probpars.baseNET,
+                         cdat.probpars.EMflag)
 
 
-if cdat.probpars.relearnbase_flag:
+elif cdat.probpars.relearnbase_flag:
     # associate the casefile with the net
     print '*'*5 + 'Learning base casefile in base net' + '*'*5 + '\n\n'
 
@@ -62,7 +63,11 @@ if cdat.probpars.relearnbase_flag:
                          cdat.probpars.baseNET,
                          cdat.probpars.EMflag)
                          
-# run the predictions using the base net --> 
+if cdat.probpars.experience_flag:
+    # set up the experience node indexing
+    cdat.NodeParentIndexing(cdat.probpars.baseNET, cdat.probpars.baseCAS)
+
+# run the predictions using the base net -->
 cdat.basepred, cdat.NETNODES = cdat.predictBayes(cdat.probpars.baseNET, cdat.N, cdat.casdata)
 
 print '*'*5 + 'Making Base Case Testing using built-in Netica Functions' + '*'*5 + '\n\n'
@@ -87,6 +92,10 @@ if cdat.probpars.report_sens:
 
 # if requested, perform K-fold cross validation
 if cdat.probpars.CVflag:
+    # create the folds desired
+    cdat.allfolds = CVT.all_folds()
+
+    cdat.allfolds.k_fold_maker(cdat.N, cdat.probpars.numfolds)
     print '\n' * 2 + '#'*20 + '\n Performing k-fold cross-validation for %d folds\n' %(cdat.probpars.numfolds) \
           + '#'*20+'\n' * 2
     # set up for cross validation
