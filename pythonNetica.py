@@ -268,7 +268,7 @@ class pynetica:
 
 
 
-    def predictBayes(self, netName, N, casdata, inputErr = None):
+    def predictBayes(self, netName, N, casdata, inputErr = None, percentiles = None):
         '''
         netName --> name of the built net to make predictions on
         N --> number of predictions to make
@@ -281,6 +281,7 @@ class pynetica:
                         values -- one for each row of casdata having a likelihood
                         value for each bin in the node. This must be calculated
                         elsewhere
+        percentiles --> np.array of percentiles for which inputErr values in a row are supplied
         '''
 
         # determine the nature of error passed in
@@ -345,13 +346,12 @@ class pynetica:
                 if cnodename in self.probpars.scenario.nodesIn:
                     if errtype == 0:
                         self.pyt.EnterNodeValue(cnode, casdata[cnodename][i])
-                    elif errtype == 1:
-                        levels = statfuns.makeInputPdf(pdfRanges, pdfParam, 'norm', curr_continuous)
-
-
-                        #########################
-                        # WORK HERE TO SET UP THE ERROR MODELS
-                        #########################
+                    else:
+                        if errtype == 1:
+                            levels = statfuns.makeInputPdf(cpred[cnodename].ranges, inputErr[i], 'norm', curr_continuous)
+                        if errtype == 2:
+                            levels = statfuns.makeInputLikelihoods(cpred[cnodename].ranges, percentiles, inputErr[i,:])
+                        self.pyt.EnterNodeLikelihood(cnode, cth.float32_to_c_float_p(levels.astype('float32')))
 
 
 
@@ -709,21 +709,36 @@ class pynetica:
         function to read in a casfile into a pynetica object.
         '''
         # first read in and strip out all comments and write out to a scratch file
-        tmpdat = open(casfilename, 'r').readlines()
         ofp = open('###tmp###', 'w')
-        for line in tmpdat:
-            #line = re.sub('\?','*',line)
-            if '//' not in line:
-                ofp.write(line)
-            elif line.strip().split()[0].strip() == '//':
-                pass
-            elif '//' in line:
-                line = re.sub('//.*', '', line)
-                if len(line.strip()) > 0:
-                    ofp.write(line)
+        print 'Reading CAS data from {0}'.format(casfilename)
+        i=-1
+        with open(casfilename) as ifp:
+            for line in ifp:
+                i += 1
+                if i==0:
+                    if ',' in line:
+                        header_names = line.strip().split(',')
+                    else:
+                        header_names = line.strip().split()
+                elif '//' not in line:
+                    ofp.write(re.sub(',', ' ', line))
+                elif line.strip().split()[0].strip() == '//':
+                    pass
+                elif '//' in line:
+                    line = re.sub('//.*', '', line)
+                    if len(line.strip()) > 0:
+                        ofp.write(re.sub(',', ' ', line))
         ofp.close()
-        self.casdata = np.genfromtxt('###tmp###', names=True,
+        print 'Finished reading from {0}  --> {1} lines processed'.format(casfilename, i)
+
+       self.casdata = np.genfromtxt('###tmp###', names=True,
                                      dtype=None, missing_values='*,?')
+
+        # EXPLORING TRYING TO HANDLE MASSIVELY GIGANTOR FILES SINCE GENFROMTXT CAN'T HANDLE THEM (40M+ lines)
+      #  self.casdata = np.fromfile('###tmp###', dtype='float32', count=-1, sep=' ').reshape(
+      #                          len(self.casdata)/len(header_names), len(header_names))
+      #  self.casdata = np.recarray()
+
         os.remove('###tmp###')
         self.N = len(self.casdata)
 

@@ -23,9 +23,20 @@ def makeInputPdf(pdfRanges, pdfParam, pdfType='norm', cont_discrete='continuous'
             PDF[i,:] = np.diff(cdf)
     return PDF
 
+def makeInputLikelihoods(pdfRanges, percentiles, obsvalues):
+    '''
+    :param pdfRanges: Ranges for the bins
+    :param percentiles: percentiles for which values are provided
+    :param obsvalues: values provided at the percentile intervals
+    :return: PDF - likelihoods at each bin location for the node
+    '''
 
+    # now interpolate to derive an empirical cdf
+    cdf_fit = np.interp(pdfRanges, obsvalues, percentiles)
+    PDF = np.diff(cdf_fit)
+    return PDF
 
-def getPy(p,pdf,ranges):
+def getPy(p, pdf, ranges):
     '''
     return the value of y with probability p from the PDF supplied
     this is the percentile (p)
