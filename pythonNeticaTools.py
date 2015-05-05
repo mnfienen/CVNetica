@@ -358,7 +358,13 @@ class pyneticaTools:
     def EnterNodeValue(self,cnode,cval):
         self.n.EnterNodeValue_bn(cnode,ct.c_double(cval))
         self.chkerr()
-        
+
+    def EnterNodeLikelihood(self, cnode, levels):
+        # make sure that the levels array is single precision
+        clevels = levels.astype('float32')
+        self.n.EnterNodeLikelihood_bn(cnode, cth.float32_to_c_float_p(clevels))
+        self.chkerr()
+
     def GetMutualInfo(self,sensentrop,Vnode):
         tmpNeticaFun = self.n.GetMutualInfo_bn
         tmpNeticaFun.restype=ct.c_double
@@ -551,6 +557,10 @@ class pyneticaTools:
                                    
     def RetractNetFindings(self,cnet):
         self.n.RetractNetFindings_bn(cnet)
+        self.chkerr()
+
+    def RetractNodeFindings(self, cnode):
+        self.n.RetractNodeFindings_bn(cnode)
         self.chkerr()
 
     def ReviseCPTsByCaseFile(self,casStreamer,cnodes,voodooPar):

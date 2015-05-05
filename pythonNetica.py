@@ -133,10 +133,12 @@ class pynetica:
         self.pyt.DeleteStream(cas_streamer)
         self.parent_inds = parent_indices
 
-    def UpdateNeticaBinThresholds(self):
+    def UpdateNeticaBinThresholds(self, VALflag = False):
         '''
         Function that reads in new numbers of bins and sets each node to
         have equiprobable bins in that number
+
+        VALFlag is for using a specific validation dataset rather than
         '''
         # first open the net
         print "*"*5 + "Setting up a rebinned net {0:s} copying nodes from {1:s}".format(self.probpars.baseNET,
@@ -149,6 +151,14 @@ class pynetica:
             if self.probpars.binsetup[cbin] != 0:
                 # only do this if requested bins not zero. Else, use same bins as input net
                 print "Setting node {0:s} to have {1:d} bins".format(cbin, self.probpars.binsetup[cbin])
+                if self.probpars.holdoutVAL_flag:
+                    # adjust the min and max bin levels to be sure and encapsulate new data that may be out of range
+                    cnodebins.binlevels[cnodebins.binlevels == np.min(cnodebins.binlevels)] = np.min(
+                    [np.min(cnodebins.binlevels), np.min(self.val_casdata[cbin])]
+                    )
+                    cnodebins.binlevels[cnodebins.binlevels == np.max(cnodebins.binlevels)] = np.max(
+                    [np.max(cnodebins.binlevels), np.max(self.val_casdata[cbin])]
+                    )
                 self.pyt.SetNodeLevels(cnode, cnodebins.binlevels)
             else:
                 print "NOT Setting node {0:s} to have {1:d} bins".format(cbin, self.probpars.binsetup[cbin])
@@ -159,7 +169,7 @@ class pynetica:
         self.pyt.DeleteStream(outfile_streamer)
         self.pyt.DeleteNet(cnet)
 
-    def PredictBayesNeticaCV(self, cfold, cnetname, calval):
+    def PredictBayesNeticaCV(self, cfold, cnetname, calval, VALset=False):
         '''
         function using Netica built-in testing functionality to evaluate Net
         '''
@@ -220,11 +230,13 @@ class pynetica:
             print "QuadLoss for {0:s} --> {1:f}".format(cn, ctestresults.quadloss[cn])
             # write confusion matrix --- only for the base case
             if cfold < 0:
-                print "Calculating confusion matrix for {0:s}".format(cn)
-                ctestresults.confusion_matrix[cn] = self.pyt.ConfusionMatrix(ctester, cnode)
-                # also calculate the experience for the node
-                print "Calculating Experience for the base Net, node --> {0:s}".format(cn)
-                ctestresults.experience[cn] = self.pyt.ExperienceAnalysis(cn, cnet)
+                if self.probpars.confusion_flag:
+                    print "Calculating confusion matrix for {0:s}".format(cn)
+                    ctestresults.confusion_matrix[cn] = self.pyt.ConfusionMatrix(ctester, cnode)
+                if self.probpars.experience_flag:
+                    # also calculate the experience for the node
+                    print "Calculating Experience for the base Net, node --> {0:s}".format(cn)
+                    ctestresults.experience[cn] = self.pyt.ExperienceAnalysis(cn, cnet)
 
         self.pyt.DeleteNetTester(ctester)
         self.pyt.DeleteNet(cnet)
@@ -237,6 +249,8 @@ class pynetica:
                 self.NeticaTests['VAL'].append(ctestresults)
             else:
                 pass
+        elif VALset:
+            self.VALNeticaTests = ctestresults
         else:
             self.BaseNeticaTests = ctestresults
 
@@ -254,10 +268,31 @@ class pynetica:
 
 
 
-    def predictBayes(self, netName, N, casdata):
+    def predictBayes(self, netName, N, casdata, inputErr = None, percentiles = None):
         '''
         netName --> name of the built net to make predictions on
+        N --> number of predictions to make
+        casdata --> data from the cas file(should be N lines)
+        inputErr --> error on the input values: can take 3 forms
+            1) None: no error assumed - just use casdata values straight up
+            2) Vector (ndim = 1): value is STD applied to casdata as mean. Normal input
+                PDF will be made using those two values
+            3) 2-d array (ndim = 2): each row of inputErr is a vector of likelihood
+                        values -- one for each row of casdata having a likelihood
+                        value for each bin in the node. This must be calculated
+                        elsewhere
+        percentiles --> np.array of percentiles for which inputErr values in a row are supplied
         '''
+
+        # determine the nature of error passed in
+        if not inputErr:
+            # no error provided
+            errtype = 0
+        else:
+            # if errtype ==1, error is STD values
+            # else if errype == 2, error is full likelihood vector for each msmt
+            errtype = inputErr.ndim
+
         # first read in the information about a Net's nodes
         cNETNODES = self.pyt.ReadNodeInfo(netName)
         '''
@@ -300,6 +335,7 @@ class pynetica:
         for i in np.arange(N):
             sys.stdout.write('predicting value {0} of {1}\r'.format(i,N))
             sys.stdout.flush()
+
             # first have to enter the values for each node
             # retract all the findings again
             self.pyt.RetractNetFindings(cnet)
@@ -308,7 +344,20 @@ class pynetica:
                 cnodename = cth.c_char_p2str(self.pyt.GetNodeName(cnode))
                 # set the current node values
                 if cnodename in self.probpars.scenario.nodesIn:
-                    self.pyt.EnterNodeValue(cnode, casdata[cnodename][i])
+                    if errtype == 0:
+                        self.pyt.EnterNodeValue(cnode, casdata[cnodename][i])
+                    else:
+                        if errtype == 1:
+                            levels = statfuns.makeInputPdf(cpred[cnodename].ranges, inputErr[i], 'norm', curr_continuous)
+                        if errtype == 2:
+                            levels = statfuns.makeInputLikelihoods(cpred[cnodename].ranges, percentiles, inputErr[i,:])
+                        self.pyt.EnterNodeLikelihood(cnode, cth.float32_to_c_float_p(levels.astype('float32')))
+
+
+
+
+
+
             for cn in np.arange(numnodes):
             # obtain the updated beliefs from ALL nodes including input and output
                 cnode = self.pyt.NthNode(allnodes, cn)
@@ -318,6 +367,7 @@ class pynetica:
                     cpred[cnodename].pdf[i, :] = cth.c_float_p2float(
                         self.pyt.GetNodeBeliefs(cnode),
                         self.pyt.GetNodeNumberStates(cnode))
+        print 'predicting value {0} of {1}\r'.format(i,N)
         #
         # Do some postprocessing for just the output nodes
         #
@@ -329,22 +379,23 @@ class pynetica:
                 curr_continuous = 'continuous'
             else:
                 curr_continuous = 'discrete'
-            pdfRanges = cpred[i].ranges
-            cpred[i].z = np.atleast_2d(casdata[i]).T
-            pdfParam = np.hstack((cpred[i].z, currstds))
-            pdfData = statfuns.makeInputPdf(pdfRanges, pdfParam, 'norm', curr_continuous)
+            if not self.probpars.holdoutVAL_flag:
+                pdfRanges = cpred[i].ranges
+                cpred[i].z = np.atleast_2d(casdata[i]).T
+                pdfParam = np.hstack((cpred[i].z, currstds))
+                pdfData = statfuns.makeInputPdf(pdfRanges, pdfParam, 'norm', curr_continuous)
 
-            cpred[i].probModelUpdate = np.nansum(pdfData * cpred[i].pdf, 1)
-            cpred[i].probModelPrior = np.nansum(pdfData * np.tile(cpred[i].priorPDF,
-                                                (N, 1)), 1)
-            cpred[i].logLikelihoodRatio = (np.log10(cpred[i].probModelUpdate + np.spacing(1)) -
-                                           np.log10(cpred[i].probModelPrior + np.spacing(1)))
-            cpred[i].dataPDF = pdfData.copy()
-            # note --> np.spacing(1) is like eps in MATLAB
-            # get the PDF stats here
+                cpred[i].probModelUpdate = np.nansum(pdfData * cpred[i].pdf, 1)
+                cpred[i].probModelPrior = np.nansum(pdfData * np.tile(cpred[i].priorPDF,
+                                                    (N, 1)), 1)
+                cpred[i].logLikelihoodRatio = (np.log10(cpred[i].probModelUpdate + np.spacing(1)) -
+                                               np.log10(cpred[i].probModelPrior + np.spacing(1)))
+                cpred[i].dataPDF = pdfData.copy()
+                # note --> np.spacing(1) is like eps in MATLAB
+                # get the PDF stats here
 
-            print 'getting stats'
-            cpred = self.PDF2Stats(i, cpred, alpha=0.1)
+                print 'getting stats'
+                cpred = self.PDF2Stats(i, cpred, alpha=0.1)
 
         self.pyt.DeleteNet(cnet)
         return cpred, cNETNODES
@@ -459,26 +510,27 @@ class pynetica:
                         cNeticaTestStats.errrate[i],
                         cNeticaTestStats.quadloss[i]))
         ofp.close()
-        outfileConfusion = re.sub('base_stats', 'Confusion', outname)
-        ofpC = open(outfileConfusion, 'w')
-        ofpC.write('Confusion matrices for net --> %s and casefile --> %s\n'
-                  %(outname, casname))
-        for j in self.probpars.scenario.response:
-            ofpC.write('*'*16 + '\nConfusion matrix for %s\n' %(j) + '*'*16 + '\n')
-            numstates = len(self.NETNODES[j].levels)-1
-            ofpC.write('%24s' %(''))
-            for i in np.arange(numstates):
-                ofpC.write('%24s' %('%8.4e--%8.4e'%(self.NETNODES[j].levels[i],
-                                        self.NETNODES[j].levels[i+1])))
-            ofpC.write('\n')
-            for i in np.arange(numstates):
-                ofpC.write('%24s' %('%8.4e--%8.4e'%(self.NETNODES[j].levels[i],
-                                        self.NETNODES[j].levels[i+1])))
-                for k in cNeticaTestStats.confusion_matrix[j][i,:]:
-                    ofpC.write('%24d' %(k))
+        if self.probpars.confusion_flag:
+            outfileConfusion = re.sub('base_stats', 'Confusion', outname)
+            ofpC = open(outfileConfusion, 'w')
+            ofpC.write('Confusion matrices for net --> %s and casefile --> %s\n'
+                      %(outname, casname))
+            for j in self.probpars.scenario.response:
+                ofpC.write('*'*16 + '\nConfusion matrix for %s\n' %(j) + '*'*16 + '\n')
+                numstates = len(self.NETNODES[j].levels)-1
+                ofpC.write('%24s' %(''))
+                for i in np.arange(numstates):
+                    ofpC.write('%24s' %('%8.4e--%8.4e'%(self.NETNODES[j].levels[i],
+                                            self.NETNODES[j].levels[i+1])))
                 ofpC.write('\n')
-            ofpC.write('\n' * 2)
-        ofpC.close()
+                for i in np.arange(numstates):
+                    ofpC.write('%24s' %('%8.4e--%8.4e'%(self.NETNODES[j].levels[i],
+                                            self.NETNODES[j].levels[i+1])))
+                    for k in cNeticaTestStats.confusion_matrix[j][i,:]:
+                        ofpC.write('%24d' %(k))
+                    ofpC.write('\n')
+                ofpC.write('\n' * 2)
+            ofpC.close()
 
 
 
@@ -657,6 +709,44 @@ class pynetica:
         function to read in a casfile into a pynetica object.
         '''
         # first read in and strip out all comments and write out to a scratch file
+        ofp = open('###tmp###', 'w')
+        print 'Reading CAS data from {0}'.format(casfilename)
+        i=-1
+        with open(casfilename) as ifp:
+            for line in ifp:
+                i += 1
+                if i==0:
+                    if ',' in line:
+                        header_names = line.strip().split(',')
+                    else:
+                        header_names = line.strip().split()
+                elif '//' not in line:
+                    ofp.write(re.sub(',', ' ', line))
+                elif line.strip().split()[0].strip() == '//':
+                    pass
+                elif '//' in line:
+                    line = re.sub('//.*', '', line)
+                    if len(line.strip()) > 0:
+                        ofp.write(re.sub(',', ' ', line))
+        ofp.close()
+        print 'Finished reading from {0}  --> {1} lines processed'.format(casfilename, i)
+
+       self.casdata = np.genfromtxt('###tmp###', names=True,
+                                     dtype=None, missing_values='*,?')
+
+        # EXPLORING TRYING TO HANDLE MASSIVELY GIGANTOR FILES SINCE GENFROMTXT CAN'T HANDLE THEM (40M+ lines)
+      #  self.casdata = np.fromfile('###tmp###', dtype='float32', count=-1, sep=' ').reshape(
+      #                          len(self.casdata)/len(header_names), len(header_names))
+      #  self.casdata = np.recarray()
+
+        os.remove('###tmp###')
+        self.N = len(self.casdata)
+
+    def read_pred_cas_file(self,casfilename):
+        '''
+        function to read in a casfile into a pynetica object.
+        '''
+        # first read in and strip out all comments and write out to a scratch file
         tmpdat = open(casfilename, 'r').readlines()
         ofp = open('###tmp###', 'w')
         for line in tmpdat:
@@ -670,10 +760,10 @@ class pynetica:
                 if len(line.strip()) > 0:
                     ofp.write(line)
         ofp.close()
-        self.casdata = np.genfromtxt('###tmp###', names=True,
+        self.val_casdata = np.genfromtxt('###tmp###', names=True,
                                      dtype=None, missing_values='*,?')
         os.remove('###tmp###')
-        self.N = len(self.casdata)
+        self.N_val = len(self.val_casdata)
 
     # cross validation driver
     def cross_val_setup(self):

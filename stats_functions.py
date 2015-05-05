@@ -3,7 +3,7 @@ from scipy.stats import norm
 from scipy.interpolate import interp1d
 from numpy.linalg import lstsq as nplstsq
 
-def makeInputPdf(pdfRanges, pdfParam,pdfType='norm',cont_discrete='continuous'):
+def makeInputPdf(pdfRanges, pdfParam, pdfType='norm', cont_discrete='continuous'):
     '''
     pdfRanges --> gives the range for each bin in the node
     pdfParam --> a Nx2 vector of mean and std
@@ -23,7 +23,20 @@ def makeInputPdf(pdfRanges, pdfParam,pdfType='norm',cont_discrete='continuous'):
             PDF[i,:] = np.diff(cdf)
     return PDF
 
-def getPy(p,pdf,ranges):
+def makeInputLikelihoods(pdfRanges, percentiles, obsvalues):
+    '''
+    :param pdfRanges: Ranges for the bins
+    :param percentiles: percentiles for which values are provided
+    :param obsvalues: values provided at the percentile intervals
+    :return: PDF - likelihoods at each bin location for the node
+    '''
+
+    # now interpolate to derive an empirical cdf
+    cdf_fit = np.interp(pdfRanges, obsvalues, percentiles)
+    PDF = np.diff(cdf_fit)
+    return PDF
+
+def getPy(p, pdf, ranges):
     '''
     return the value of y with probability p from the PDF supplied
     this is the percentile (p)
