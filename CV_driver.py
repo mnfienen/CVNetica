@@ -43,17 +43,20 @@ if cdat.probpars.rebin_flag:
     # sets equiprobable bins for each node as requested
     cdat.UpdateNeticaBinThresholds()
 
-# set up the experience node indexing
-cdat.NodeParentIndexing(cdat.probpars.baseNET, cdat.probpars.baseCAS)
+if cdat.probpars.experience_flag:
+    # set up the experience node indexing
+    cdat.NodeParentIndexing(cdat.probpars.baseNET, cdat.probpars.baseCAS)
 
 # create the folds desired
 cdat.allfolds = CVT.all_folds()
 cdat.allfolds.k_fold_maker(cdat.N, cdat.probpars.numfolds)
 
-# associate the casefile with the net
-print '*'*5 + 'Learning base casefile in base net' + '*'*5 + '\n\n'
 
-cdat.pyt.rebuild_net(cdat.probpars.baseNET,
+if cdat.probpars.relearnbase_flag:
+    # associate the casefile with the net
+    print '*'*5 + 'Learning base casefile in base net' + '*'*5 + '\n\n'
+
+    cdat.pyt.rebuild_net(cdat.probpars.baseNET,
                          cdat.probpars.baseCAS,
                          cdat.probpars.voodooPar,
                          cdat.probpars.baseNET,
@@ -73,9 +76,10 @@ cdat.PredictBayesPostProc(cdat.basepred,
                           cdat.probpars.scenario.name + '_base_stats.dat',
                           cdat.probpars.baseCAS,
                           cdat.BaseNeticaTests)
+if cdat.probpars.experience_flag:
 
-# also need to postprocess experience
-cdat.ExperiencePostProc()
+    # also need to postprocess experience
+    cdat.ExperiencePostProc()
 
 # optionally perform sensitivity analysis on the base case
 if cdat.probpars.report_sens:

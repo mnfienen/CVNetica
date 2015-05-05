@@ -230,11 +230,13 @@ class pynetica:
             print "QuadLoss for {0:s} --> {1:f}".format(cn, ctestresults.quadloss[cn])
             # write confusion matrix --- only for the base case
             if cfold < 0:
-                print "Calculating confusion matrix for {0:s}".format(cn)
-                ctestresults.confusion_matrix[cn] = self.pyt.ConfusionMatrix(ctester, cnode)
-                # also calculate the experience for the node
-                print "Calculating Experience for the base Net, node --> {0:s}".format(cn)
-                ctestresults.experience[cn] = self.pyt.ExperienceAnalysis(cn, cnet)
+                if self.probpars.confusion_flag:
+                    print "Calculating confusion matrix for {0:s}".format(cn)
+                    ctestresults.confusion_matrix[cn] = self.pyt.ConfusionMatrix(ctester, cnode)
+                if self.probpars.experience_flag:
+                    # also calculate the experience for the node
+                    print "Calculating Experience for the base Net, node --> {0:s}".format(cn)
+                    ctestresults.experience[cn] = self.pyt.ExperienceAnalysis(cn, cnet)
 
         self.pyt.DeleteNetTester(ctester)
         self.pyt.DeleteNet(cnet)
@@ -474,26 +476,27 @@ class pynetica:
                         cNeticaTestStats.errrate[i],
                         cNeticaTestStats.quadloss[i]))
         ofp.close()
-        outfileConfusion = re.sub('base_stats', 'Confusion', outname)
-        ofpC = open(outfileConfusion, 'w')
-        ofpC.write('Confusion matrices for net --> %s and casefile --> %s\n'
-                  %(outname, casname))
-        for j in self.probpars.scenario.response:
-            ofpC.write('*'*16 + '\nConfusion matrix for %s\n' %(j) + '*'*16 + '\n')
-            numstates = len(self.NETNODES[j].levels)-1
-            ofpC.write('%24s' %(''))
-            for i in np.arange(numstates):
-                ofpC.write('%24s' %('%8.4e--%8.4e'%(self.NETNODES[j].levels[i],
-                                        self.NETNODES[j].levels[i+1])))
-            ofpC.write('\n')
-            for i in np.arange(numstates):
-                ofpC.write('%24s' %('%8.4e--%8.4e'%(self.NETNODES[j].levels[i],
-                                        self.NETNODES[j].levels[i+1])))
-                for k in cNeticaTestStats.confusion_matrix[j][i,:]:
-                    ofpC.write('%24d' %(k))
+        if self.probpars.confusion_flag:
+            outfileConfusion = re.sub('base_stats', 'Confusion', outname)
+            ofpC = open(outfileConfusion, 'w')
+            ofpC.write('Confusion matrices for net --> %s and casefile --> %s\n'
+                      %(outname, casname))
+            for j in self.probpars.scenario.response:
+                ofpC.write('*'*16 + '\nConfusion matrix for %s\n' %(j) + '*'*16 + '\n')
+                numstates = len(self.NETNODES[j].levels)-1
+                ofpC.write('%24s' %(''))
+                for i in np.arange(numstates):
+                    ofpC.write('%24s' %('%8.4e--%8.4e'%(self.NETNODES[j].levels[i],
+                                            self.NETNODES[j].levels[i+1])))
                 ofpC.write('\n')
-            ofpC.write('\n' * 2)
-        ofpC.close()
+                for i in np.arange(numstates):
+                    ofpC.write('%24s' %('%8.4e--%8.4e'%(self.NETNODES[j].levels[i],
+                                            self.NETNODES[j].levels[i+1])))
+                    for k in cNeticaTestStats.confusion_matrix[j][i,:]:
+                        ofpC.write('%24d' %(k))
+                    ofpC.write('\n')
+                ofpC.write('\n' * 2)
+            ofpC.close()
 
 
 

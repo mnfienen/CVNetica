@@ -42,15 +42,29 @@ class input_parameters:
                 self.valCAS = None
         try:
             self.rebin_flag = tf2flag(inpars.findall('.//control_data/rebin_flag')[0].text)
-            self.originalNET = inpars.findall('.//control_data/originalNET')[0].text
         except IndexError:
             self.rebin_flag = False  # this is the default
         if self.rebin_flag:
             self.binsetup = dict()
+            self.originalNET = inpars.findall('.//control_data/originalNET')[0].text
+
             allbins = inpardat.findall('.//newbins/node')
             for cbin in allbins:
                 tmp = cbin.attrib
                 self.binsetup[cbin.text] = int(tmp['numbins'])
+        try:
+            self.experience_flag = tf2flag(inpars.findall('.//control_data/Experienceflag')[0].text)
+        except:
+            self.experience_flag = False
+        try:
+            self.relearnbase_flag = tf2flag(inpars.findall('.//control_data/RelearnBaseflag')[0].text)
+        except:
+            self.relearnbase_flag = True
+        try:
+            self.confusion_flag = tf2flag(inpars.findall('.//control_data/Confusionflag')[0].text)
+        except:
+            self.confusion_flag = False
+
 
         self.CVflag = tf2flag(inpars.findall('.//kfold_data/CVflag')[0].text)
         self.numfolds = int(inpars.findall('.//kfold_data/numfolds')[0].text)
@@ -65,8 +79,10 @@ class input_parameters:
         self.CASheader = list(self.scenario.nodesIn)
         self.CASheader.extend(self.scenario.response)    
         self.EMflag = tf2flag(inpars.findall('.//learnCPTdata/useEM')[0].text)
-        self.report_sens = False
-        self.report_sens = tf2flag(inpars.findall('.//sensitivity/report_sens')[0].text)
+        try:
+            self.report_sens = tf2flag(inpars.findall('.//sensitivity/report_sens')[0].text)
+        except:
+            self.report_sens = False
         self.voodooPar = float(inpars.findall('.//learnCPTdata/voodooPar')[0].text)
 
 
@@ -126,4 +142,4 @@ class FileOpenFail(Exception):
     def __init__(self,filename):
         self.fn = filename
     def __str__(self):
-        return('\n\nCould not open %s.' %(self.fn))    
+        return('\n\nCould not parse {0}. \nCheck that all elements have matching opening and closing names!\n\n'.format(self.fn))
