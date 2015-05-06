@@ -437,6 +437,9 @@ class pynetica:
             cpred[nodename].stats.palphaMinus = blank*statfuns.getPy(
                 dalpha, pdf,
                 cpred[nodename].ranges)
+
+        print 'Calculating percentiles'
+
         # now handle the p75,p95, and p975 cases
         # 75th percentiles
         cpred[nodename].stats.p25 = blank*statfuns.getPy(0.25, pdf,
@@ -456,6 +459,8 @@ class pynetica:
         # MEDIAN  
         cpred[nodename].stats.median = blank*statfuns.getPy(0.5, pdf,
                                                             cpred[nodename].ranges)
+
+        print 'Calculating mean, ML, and std'
 
         # now get the mean, ML, and std values
         (cpred[nodename].stats.mean,
@@ -709,36 +714,21 @@ class pynetica:
         function to read in a casfile into a pynetica object.
         '''
         # first read in and strip out all comments and write out to a scratch file
+        tmpdat = open(casfilename, 'r').readlines()
         ofp = open('###tmp###', 'w')
-        print 'Reading CAS data from {0}'.format(casfilename)
-        i=-1
-        with open(casfilename) as ifp:
-            for line in ifp:
-                i += 1
-                if i==0:
-                    if ',' in line:
-                        header_names = line.strip().split(',')
-                    else:
-                        header_names = line.strip().split()
-                elif '//' not in line:
+        for line in tmpdat:
+            #line = re.sub('\?','*',line)
+            if '//' not in line:
+                ofp.write(re.sub(',', ' ', line))
+            elif line.strip().split()[0].strip() == '//':
+                pass
+            elif '//' in line:
+                line = re.sub('//.*', '', line)
+                if len(line.strip()) > 0:
                     ofp.write(re.sub(',', ' ', line))
-                elif line.strip().split()[0].strip() == '//':
-                    pass
-                elif '//' in line:
-                    line = re.sub('//.*', '', line)
-                    if len(line.strip()) > 0:
-                        ofp.write(re.sub(',', ' ', line))
         ofp.close()
-        print 'Finished reading from {0}  --> {1} lines processed'.format(casfilename, i)
-
-       self.casdata = np.genfromtxt('###tmp###', names=True,
+        self.casdata = np.genfromtxt('###tmp###', names=True,
                                      dtype=None, missing_values='*,?')
-
-        # EXPLORING TRYING TO HANDLE MASSIVELY GIGANTOR FILES SINCE GENFROMTXT CAN'T HANDLE THEM (40M+ lines)
-      #  self.casdata = np.fromfile('###tmp###', dtype='float32', count=-1, sep=' ').reshape(
-      #                          len(self.casdata)/len(header_names), len(header_names))
-      #  self.casdata = np.recarray()
-
         os.remove('###tmp###')
         self.N = len(self.casdata)
 
